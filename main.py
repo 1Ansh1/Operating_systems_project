@@ -2,13 +2,12 @@ import argparse
 import algorithms
 import workload
 import simulation
-import reporting # Import our new reporting module
-from tqdm import tqdm # A new library for a progress bar
+import reporting 
+from tqdm import tqdm
 
 def run_single_simulation(args):
     """
     Runs a SINGLE simulation based on the arguments.
-    This is what the old main() function did.
     """
     page_requests = []
     if args.workload_file:
@@ -35,15 +34,14 @@ def run_single_simulation(args):
     print(f"Total Page Requests: {len(page_requests)}")
     print("--------------------------")
 
-    results_metrics = simulation.run_single_process(algo_instance, page_requests, args.frames)
-    stats = results_metrics.get_stats()
+    stats = simulation.run_single_process(algo_instance, page_requests, args.frames)
     
     print("\n--- Simulation Results ---")
     print(f"Total Requests: {stats['Total Requests']}")
     print(f"Page Hits: {stats['Page Hits']}")
     print(f"Page Faults: {stats['Page Faults']}")
-    print(f"Hit Ratio: {stats['Hit Ratio']:.2%}")
-    print(f"Miss Ratio: {stats['Miss Ratio']:.2%}")
+    print(f"Hit Ratio: {stats['Hit Ratio']}")   # Uses the formatted string
+    print(f"Miss Ratio: {stats['Miss Ratio']}") # Uses the formatted string
     print("--------------------------\n")
 
 
@@ -65,43 +63,47 @@ def run_comparison_simulation(args):
         print("Error: No workload to process. Exiting.")
         return
     
-    # Define the algorithms to compare
-    alg_list = ['FIFO', 'LRU', 'Optimal']
+    alg_list = ['FIFO', 'LRU', 'Optimal', 'MGLRU']
     
-    # Define the range of frames to test
     min_frames = args.compare[0]
     max_frames = args.compare[1]
     frame_range = range(min_frames, max_frames + 1)
     
-    results_data = [] # This will store all stats
+    results_data = []
     
     print(f"--- Running Comparison Simulation ---")
     print(f"Workload Length: {len(page_requests)}")
     print(f"Algorithms: {', '.join(alg_list)}")
     print(f"Frame Range: {min_frames} to {max_frames}")
     
-    # Use tqdm for a nice progress bar
     total_sims = len(alg_list) * len(frame_range)
     with tqdm(total=total_sims, desc="Running Simulations") as pbar:
         for alg_name in alg_list:
             for num_frames in frame_range:
-                # 1. Initialize the algorithm
-                algo_instance = get_algorithm_instance(alg_name, num_frames, page_requests)
-                
-                # 2. Run the simulation
-                metrics = simulation.run_single_process(algo_instance, page_requests, num_frames)
-                
-                # 3. Get and store the stats
-                stats = metrics.get_stats()
-                stats['Algorithm'] = alg_name
-                stats['Frames'] = num_frames
-                results_data.append(stats)
+                try:
+                    algo_instance = get_algorithm_instance(alg_name, num_frames, page_requests)
+                    
+                    stats = simulation.run_single_process(algo_instance, page_requests, num_frames)
+                    
+                    stats['Algorithm'] = alg_name
+                    stats['Frames'] = num_frames
+                    results_data.append(stats)
+                except Exception as e:
+                    print(f"\n[!] Error during simulation: {alg_name} @ {num_frames} frames.")
+                    print(f"    Error: {e}")
+                    # Continue to the next simulation
                 
                 pbar.update(1)
 
-    # 4. Generate the report
-    print("Simulations complete. Generating plot...")
+    print("\nSimulations complete. Generating plot...")
+
+    # --- THIS IS THE KEY FIX ---
+    # The old conversion loop is no longer needed and has been removed.
+    # We just pass the raw results_data to the reporting function.
+    # --- END OF FIX ---
+
     reporting.plot_comparison_graph(results_data)
+    reporting.save_csv_report(results_data)
 
 
 def get_algorithm_instance(alg_name, num_frames, page_requests):
@@ -114,9 +116,8 @@ def get_algorithm_instance(alg_name, num_frames, page_requests):
         return algorithms.LRU(num_frames)
     elif alg_name == 'Optimal':
         return algorithms.Optimal(num_frames)
-    # Add MGLRU here later
-    # elif alg_name == 'MGLRU':
-    #     return algorithms.MGLRU(num_frames)
+    elif alg_name == 'MGLRU':
+        return algorithms.MGLRU(num_frames)
     else:
         return None
 
@@ -124,7 +125,6 @@ def get_algorithm_instance(alg_name, num_frames, page_requests):
 def main():
     parser = argparse.ArgumentParser(description="Page Replacement Algorithm Simulator")
     
-    # --- Workload Arguments (Required) ---
     workload_group = parser.add_mutually_exclusive_group(required=True)
     workload_group.add_argument('--workload_file',
                                 type=str,
@@ -134,17 +134,13 @@ def main():
                                 metavar=('TYPE', 'LENGTH', 'MAX_PAGE'),
                                 help="Generate a workload: TYPE LENGTH MAX_PAGE (e.g., 'random 100 20')")
 
-    # --- Mode Arguments (Required) ---
-    # The user must choose to run ONE simulation OR a COMPARISON
     mode_group = parser.add_mutually_exclusive_group(required=True)
     
-    # Arguments for a SINGLE run
     mode_group.add_argument('--single',
                             nargs=2,
                             metavar=('ALG', 'FRAMES'),
                             help="Run a single simulation: ALG FRAMES (e.g., 'FIFO 4')")
                             
-    # Arguments for a COMPARISON run
     mode_group.add_argument('--compare',
                             nargs=2,
                             type=int,
@@ -153,9 +149,7 @@ def main():
 
     args = parser.parse_args()
 
-    # --- Route to the correct function ---
     if args.single:
-        # Add the single-run args to the main args object
         args.alg = args.single[0]
         args.frames = int(args.single[1])
         if args.alg not in ['FIFO', 'LRU', 'Optimal', 'MGLRU']:

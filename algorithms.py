@@ -6,8 +6,7 @@ from collections import deque
 class PageReplacementAlgorithm(ABC):
     """
     This is the abstract base class (like a blueprint) for all
-    page replacement algorithms. It ensures every algorithm we
-    write has the same standard methods.
+    page replacement algorithms.
     """
     def __init__(self, num_frames):
         if num_frames <= 0:
@@ -18,187 +17,173 @@ class PageReplacementAlgorithm(ABC):
         self.page_hits = 0
 
     @abstractmethod
-    def process_page_request(self, page_number):
+    def process_page_request(self, page_number, workload_future=None):
         """
         This is the main method that each algorithm must implement.
         It will process a single page request.
+        It must (internally) handle hits and faults.
         """
         pass
 
     def get_stats(self):
         """
         Returns a dictionary of the final performance statistics.
+        (This is the corrected version with raw numbers for plotting)
         """
         total_requests = self.page_hits + self.page_faults
-        hit_ratio = (self.page_hits / total_requests) if total_requests > 0 else 0
-        miss_ratio = (self.page_faults / total_requests) if total_requests > 0 else 0
+        hit_ratio_raw = (self.page_hits / total_requests) if total_requests > 0 else 0
+        miss_ratio_raw = (self.page_faults / total_requests) if total_requests > 0 else 0
         
         return {
             "Total Requests": total_requests,
             "Page Faults": self.page_faults,
             "Page Hits": self.page_hits,
-            "Hit Ratio": f"{hit_ratio:.2%}",
-            "Miss Ratio": f"{miss_ratio:.2%}"
+            "Hit Ratio": f"{hit_ratio_raw:.2%}",      # Formatted string
+            "Miss Ratio": f"{miss_ratio_raw:.2%}",     # Formatted string
+            "Hit Ratio (raw)": hit_ratio_raw,         # Raw number
+            "Miss Ratio (raw)": miss_ratio_raw        # Raw number
         }
 
 # --- 1. FIFO (First-In, First-Out) Module ---
 
 class FIFO(PageReplacementAlgorithm):
-    """
-    Implements the First-In, First-Out (FIFO) algorithm.
-    Uses a simple queue (deque) to track the order of pages.
-    """
     def __init__(self, num_frames):
         super().__init__(num_frames)
-        # We use a deque (double-ended queue) as our queue
-        # self.frames will store what's in memory
-        # self.queue will store the *order* they arrived
-        self.queue = deque()
+        self.queue = deque() # Tracks arrival order
 
-    def process_page_request(self, page_number):
-        """
-        Processes a single page request using FIFO logic.
-        """
+    def process_page_request(self, page_number, workload_future=None):
         # Check for a Page Hit
         if page_number in self.frames:
             self.page_hits += 1
-            # No page fault, no eviction, so we're done.
             return
 
         # --- Process a Page Fault ---
         self.page_faults += 1
         
-        # If frames are not full, just add the new page
         if len(self.frames) < self.num_frames:
             self.frames.append(page_number)
-            self.queue.append(page_number) # Add to the back of the queue
+            self.queue.append(page_number)
         else:
-            # Frames are full, we must evict.
-            # 1. Find the oldest page (front of the queue)
-            page_to_evict = self.queue.popleft() # Remove from front
-            
-            # 2. Remove it from memory (frames)
+            page_to_evict = self.queue.popleft()
             self.frames.remove(page_to_evict)
-            
-            # 3. Add the new page to memory and the queue
             self.frames.append(page_number)
-            self.queue.append(page_number) # Add to back
+            self.queue.append(page_number)
 
 # --- 2. LRU (Least Recently Used) Module ---
 
 class LRU(PageReplacementAlgorithm):
-    """
-    Implements the Least Recently Used (LRU) algorithm.
-    
-    We use the self.frames list as our LRU tracker.
-    - The page at index 0 is the LEAST recently used.
-    - The page at the end (index -1) is the MOST recently used.
-    """
     def __init__(self, num_frames):
         super().__init__(num_frames)
+        # self.frames list is used as the LRU stack
 
-    def process_page_request(self, page_number):
-        """
-        Processes a single page request using LRU logic.
-        """
-        
+    def process_page_request(self, page_number, workload_future=None):
         # Check for a Page Hit
         if page_number in self.frames:
             self.page_hits += 1
-            # --- This is the key LRU logic ---
-            # A hit means this page is now the "most recently used".
-            # So, we remove it from its current position...
+            # A hit: move page to end (most recently used)
             self.frames.remove(page_number)
-            # ...and append it to the end of the list.
             self.frames.append(page_number)
             return
 
         # --- Process a Page Fault ---
         self.page_faults += 1
         
-        # If frames are not full, just add the new page to the end
         if len(self.frames) < self.num_frames:
             self.frames.append(page_number)
         else:
-            # Frames are full, we must evict.
-            # 1. Evict the LRU page (the one at the front, index 0)
+            # Evict LRU page (at front of list)
             self.frames.pop(0) 
-            
-            # 2. Add the new page to the end (making it the MRU page)
             self.frames.append(page_number)
 
-# --- 3. Optimal (OPT) Module (Corrected) ---
+# --- 3. Optimal (OPT) Module ---
 
 class Optimal(PageReplacementAlgorithm):
-    """
-    Implements the Optimal (OPT) page replacement algorithm.
-    
-    This algorithm is theoretical and looks into the "future"
-    (the rest of the workload) to make the best possible eviction choice.
-    """
     def __init__(self, num_frames):
-        # We don't need the workload here.
-        # It will be passed to process_page_request.
         super().__init__(num_frames)
 
     def process_page_request(self, page_number, workload_future):
-        """
-        Processes a single page request using Optimal logic.
-        
-        Args:
-            page_number (int): The page being requested.
-            workload_future (list): The *entire* future workload,
-                                    starting from the *next* request.
-        """
-        
         # Check for a Page Hit
         if page_number in self.frames:
             self.page_hits += 1
-            # No logic needed on a hit, just return
             return
 
         # --- Process a Page Fault ---
         self.page_faults += 1
         
-        # If frames are not full, just add the new page
         if len(self.frames) < self.num_frames:
             self.frames.append(page_number)
         else:
-            # Frames are full, we must evict.
-            # This is the core Optimal logic.
-            
-            # 1. Find which page in our frames is used
-            #    furthest in the future.
+            # Evict page used furthest in the future
             page_to_evict = self._find_furthest_used_page(workload_future)
-            
-            # 2. Replace it
             self.frames.remove(page_to_evict)
             self.frames.append(page_number)
 
     def _find_furthest_used_page(self, future_workload):
-        """
-        Helper function to find the page in frames that is used
-        furthest in the future.
-        """
-        
-        # Store the index of the *next* use for each page in frames
-        # {page: next_use_index}
         next_use = {}
-        
-        # Find the next use for each page currently in our frames
         for page in self.frames:
             try:
-                # Find the first index of 'page' in the future
                 future_index = future_workload.index(page)
                 next_use[page] = future_index
             except ValueError:
-                # If the page is *never* used again in the future,
-                # it's the PERFECT page to evict.
-                # We can return it immediately.
+                # Page is never used again, perfect to evict
                 return page
         
-        # If all pages are used again, we find the one
-        # used *furthest* away (highest index).
-        # We get the page with the maximum 'future_index' value
-        page_to_evict = max(next_use, key=next_use.get)
-        return page_to_evict
+        # Evict page with the largest future_index
+        return max(next_use, key=next_use.get)
+
+# --- 4. MGLRU (Multi-Generational LRU) Module ---
+
+class MGLRU(PageReplacementAlgorithm):
+    def __init__(self, num_frames, num_generations=4, aging_threshold=10):
+        super().__init__(num_frames)
+        self.num_generations = num_generations
+        self.aging_threshold = aging_threshold
+        
+        self.generations = [deque() for _ in range(num_generations)]
+        self.page_map = {} # Tracks {page -> gen_index}
+        self.current_page_count = 0
+        self.age_tick_counter = 0
+
+    def _age_pages(self):
+        for i in range(self.num_generations - 2, -1, -1):
+            if self.generations[i]:
+                page_to_age = self.generations[i].popleft()
+                next_gen = i + 1
+                self.generations[next_gen].append(page_to_age)
+                self.page_map[page_to_age] = next_gen
+                return
+
+    def process_page_request(self, page_number, workload_future=None):
+        self.age_tick_counter += 1
+        if self.age_tick_counter >= self.aging_threshold:
+            self._age_pages()
+            self.age_tick_counter = 0
+            
+        if page_number in self.page_map:
+            self.page_hits += 1
+            current_gen = self.page_map[page_number]
+            if current_gen != 0:
+                self.generations[current_gen].remove(page_number)
+                self.generations[0].append(page_number)
+                self.page_map[page_number] = 0
+            return
+
+        self.page_faults += 1
+        
+        if self.current_page_count == self.num_frames:
+            victim_found = False
+            for i in range(self.num_generations - 1, -1, -1):
+                if self.generations[i]:
+                    page_to_evict = self.generations[i].popleft()
+                    del self.page_map[page_to_evict]
+                    self.current_page_count -= 1
+                    victim_found = True
+                    break
+            
+            if not victim_found:
+                print("MGLRU Error: Frames full but no victim found.")
+                return
+
+        self.generations[0].append(page_number)
+        self.page_map[page_number] = 0
+        self.current_page_count += 1
