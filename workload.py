@@ -82,3 +82,62 @@ def generate_workload(length, max_page_num, type='random'):
         raise ValueError(f"Unknown workload type: '{type}'")
         
     return page_requests
+
+def generate_multiprocess_workload(length, num_processes, max_page_per_process, type='locality'):
+    """
+    Generates a synthetic multi-process workload.
+    
+    Each item in the trace is a tuple: (process_id, page_number)
+    
+    Args:
+        length (int): Total number of page requests in the trace.
+        num_processes (int): Number of processes to simulate.
+        max_page_per_process (int): Max page number *for each* process.
+        type (str): The type of workload (e.g., 'locality').
+    
+    Returns:
+        A list of (pid, page) tuples.
+    """
+    trace = []
+    
+    # Create a list of 'process' generators, one for each pid
+    # Each process will have its own 'locality'
+    process_generators = {}
+    for i in range(num_processes):
+        pid = i + 1
+        # We use a trick by generating a *full* workload for each
+        # process, and then we'll pick from them.
+        # This simulates each process running its own program.
+        process_generators[pid] = generate_workload(length, max_page_per_process, type)
+
+    # Simulate a "context switch" by randomly picking which
+    # process makes the next request.
+    
+    # Keep track of the current index for each process's trace
+    process_indices = {pid: 0 for pid in range(1, num_processes + 1)}
+
+    for _ in range(length):
+        # Pick a process to run next
+        # (This is a simple random switch, a real OS is more complex)
+        active_pid = random.randint(1, num_processes)
+        
+        # Get the next page for that process
+        page_index = process_indices[active_pid]
+        
+        if page_index < length: # Check if this process's trace is done
+            page_num = process_generators[active_pid][page_index]
+            trace.append((active_pid, page_num))
+            process_indices[active_pid] += 1
+        else:
+            # This process finished its trace, just pick another
+            # (In a real scenario, this gets more complex, but for
+            # simulation, we can just grab from another process)
+            other_pid = (active_pid % num_processes) + 1
+            page_index = process_indices[other_pid]
+            if page_index < length:
+                page_num = process_generators[other_pid][page_index]
+                trace.append((other_pid, page_num))
+                process_indices[other_pid] += 1
+
+    # Ensure we have *exactly* the length requested
+    return trace[:length]
