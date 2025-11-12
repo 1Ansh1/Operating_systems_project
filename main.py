@@ -37,6 +37,17 @@ def run_single_simulation(args):
     
     print("\n--- Simulation Results ---")
     print_stats(stats)
+    timeline_data = algo_instance.get_timeline()
+    reporting.save_timeline_report(timeline_data)
+    
+    # --- ADD THIS NEW LINE ---
+    # Save the visual timeline plot
+    reporting.plot_timeline_events(timeline_data)
+    if isinstance(algo_instance, algorithms.MGLRU):
+        # We need to get the log and the number of generations
+        gen_log = algo_instance.get_generation_log()
+        num_gens = algo_instance.num_generations
+        reporting.plot_mglru_generations(gen_log, num_gens)
 
 
 def run_comparison_simulation(args):

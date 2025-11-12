@@ -1,0 +1,83 @@
+=====================================================================
+== Page Replacement Simulator - Command Cheatsheet ==
+=====================================================================
+
+---
+== 1. SINGLE-PROCESS: Comparison Plot (All Algorithms) ==
+---
+# This mode is for generating the main comparison graph and CSV report.
+
+# Template:
+# python main.py --generate_workload <TYPE> <LENGTH> <MAX_PAGE> --compare <MIN_FRAMES> <MAX_FRAMES>
+# python main.py --workload_file <FILE> --compare <MIN_FRAMES> <MAX_FRAMES>
+
+# Examples:
+
+# (Recommended) Run all 4 algorithms with a 500-request 'locality' workload,
+# testing from 1 to 30 frames. This gives the best-looking graph.
+    python main.py --generate_workload locality 500 50 --compare 1 30
+
+# Run a "stress test" with a 10,000-request workload.
+    python main.py --generate_workload locality 10000 50 --compare 1 30
+
+# Run the comparison using the simple trace file.
+    python main.py --workload_file workloads/simple_trace.txt --compare 1 15
+
+
+---
+== 2. SINGLE-PROCESS: Single Run (Timeline & Generation Plots) ==
+---
+# This mode is for testing one algorithm and generating its detailed
+# timeline reports (text file and scatter plot).
+
+# Template:
+# python main.py --generate_workload <TYPE> <LENGTH> <MAX_PAGE> --single <ALGORITHM> <FRAMES>
+# python main.py --workload_file <FILE> --single <ALGORITHM> <FRAMES>
+
+# Examples:
+
+# Run FIFO with 3 frames on the simple trace.
+# (Generates timeline_report.txt and timeline_plot.png)
+    python main.py --workload_file workloads/simple_trace.txt --single FIFO 3
+
+# Run LRU with 32 frames on a 500-request locality workload.
+# (Generates timeline_report.txt and timeline_plot.png)
+    python main.py --generate_workload locality 500 50 --single LRU 32
+
+# Run MGLRU with 32 frames.
+# (Generates all timeline reports PLUS mglru_generations_plot.png)
+    python main.py --generate_workload locality 500 50 --single MGLRU 32
+
+# Run Optimal with 10 frames on a random workload.
+# (Generates timeline_report.txt and timeline_plot.png)
+    python main.py --generate_workload random 200 20 --single Optimal 10
+
+
+---
+== 3. MULTI-PROCESS: Fixed vs. Global (Single Run) ==
+---
+# This mode is for comparing Fixed vs. Global allocation strategies.
+# It always requires the --generate_multiprocess and --multi arguments.
+
+# Template:
+# python main.py --generate_multiprocess <TYPE> <LEN> <MAX_P_PER_PROC> --multi <ALLOC> <ALG> <FRAMES> <NUM_PROCS>
+
+# Examples:
+
+# Run FIXED (local) allocation with LRU, 128 total frames, for 4 processes.
+    python main.py --generate_multiprocess locality 10000 50 --multi fixed LRU 128 4
+
+# Run GLOBAL allocation with LRU, 128 total frames, for 4 processes.
+    python main.py --generate_multiprocess locality 10000 50 --multi global LRU 128 4
+
+# Run FIXED allocation with FIFO, 64 total frames, for 2 processes.
+    python main.py --generate_multiprocess locality 5000 30 --multi fixed FIFO 64 2
+
+# Run GLOBAL allocation with FIFO, 64 total frames, for 2 processes.
+    python main.py --generate_multiprocess locality 5000 30 --multi global FIFO 64 2
+
+=====================================================================
+# Valid Algorithms: FIFO, LRU, Optimal, MGLRU
+# Valid Workload Types: random, sequential, locality
+# Valid Allocations: fixed, global
+=====================================================================
