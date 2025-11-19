@@ -1,20 +1,13 @@
 import pandas as pd
 
 class MetricsCollector:
-    """
-    This is your "Metrics Collector" module.
     
-    It records every event (hit, fault) and can calculate
-    the final statistics. It will also store a timeline of
-    events for later visualization.
-    """
     def __init__(self):
         self.hits = 0
         self.faults = 0
         self.total_requests = 0
         
-        # This will store a log of what happened at each step
-        # Format: [ (step, page_requested, was_fault, frames_state) ]
+
         self.timeline = []
 
     def record_hit(self, step, page, frames):
@@ -28,7 +21,7 @@ class MetricsCollector:
         self.timeline.append((step, page, True, list(frames)))
 
     def get_stats(self):
-        """Calculates and returns the final statistics."""
+        
         hit_ratio = (self.hits / self.total_requests) if self.total_requests > 0 else 0
         miss_ratio = (self.faults / self.total_requests) if self.total_requests > 0 else 0
         
@@ -41,7 +34,7 @@ class MetricsCollector:
         }
 
     def get_timeline_dataframe(self):
-        """Converts the timeline log into a pandas DataFrame."""
+
         return pd.DataFrame(
             self.timeline,
             columns=["Step", "Page", "Is Fault", "Frames State"]

@@ -2,12 +2,12 @@ import argparse
 import algorithms
 import workload
 import simulation
-import multi_process_simulation as multi_sim # Our new file
+import multi_process_simulation as multi_sim 
 import reporting 
 from tqdm import tqdm
 
 def run_single_simulation(args):
-    """ Runs a SINGLE simulation (single process) """
+    
     page_requests = []
     if args.workload_file:
         print(f"Parsing workload from: {args.workload_file}")
@@ -40,18 +40,16 @@ def run_single_simulation(args):
     timeline_data = algo_instance.get_timeline()
     reporting.save_timeline_report(timeline_data)
     
-    # --- ADD THIS NEW LINE ---
-    # Save the visual timeline plot
+    
     reporting.plot_timeline_events(timeline_data)
     if isinstance(algo_instance, algorithms.MGLRU):
-        # We need to get the log and the number of generations
         gen_log = algo_instance.get_generation_log()
         num_gens = algo_instance.num_generations
         reporting.plot_mglru_generations(gen_log, num_gens)
 
 
 def run_comparison_simulation(args):
-    """ Runs a COMPARISON simulation (single process) """
+    
     page_requests = []
     if args.workload_file:
         print(f"Parsing workload from: {args.workload_file}")
@@ -97,10 +95,7 @@ def run_comparison_simulation(args):
 
 
 def run_multi_process_simulation(args):
-    """ Runs a SINGLE multi-process simulation """
     
-    # 1. Get multi-process args
-    # e.g., args.multi = ['fixed', 'FIFO', '128', '4']
     try:
         alloc_strategy = args.multi[0]
         alg_name = args.multi[1]
@@ -111,7 +106,6 @@ def run_multi_process_simulation(args):
         print("Expected: --multi <fixed|global> <ALG> <FRAMES> <NUM_PROCS>")
         return
 
-    # 2. Get workload args (these are separate)
     if args.workload_file:
         print("Error: --multi mode requires a *generated* workload.")
         print("Please use --generate_multiprocess instead.")
@@ -120,7 +114,6 @@ def run_multi_process_simulation(args):
         print("Error: --multi mode requires --generate_multiprocess.")
         return
 
-    # e.g., args.generate_multiprocess = ['locality', '10000', '50']
     try:
         w_type = args.generate_multiprocess[0]
         w_len = int(args.generate_multiprocess[1])
@@ -130,13 +123,11 @@ def run_multi_process_simulation(args):
         print("Expected: --generate_multiprocess <TYPE> <LENGTH> <MAX_PAGE_PER_PROC>")
         return
 
-    # 3. Get the algorithm *class* (not an instance)
     alg_class = get_algorithm_class(alg_name)
     if not alg_class:
         print(f"Error: Algorithm '{alg_name}' not found.")
         return
         
-    # 4. Generate the multi-process workload
     print(f"Generating multi-process workload...")
     mp_workload = workload.generate_multiprocess_workload(w_len, num_processes, w_max_per_proc, w_type)
     
@@ -148,7 +139,6 @@ def run_multi_process_simulation(args):
     print(f"Workload: {w_type}, Length={w_len}")
     print("----------------------------------------")
 
-    # 5. Run the correct simulation
     stats = {}
     if alloc_strategy == 'fixed':
         stats = multi_sim.run_fixed_allocation_sim(alg_class, mp_workload, total_frames, num_processes)
@@ -163,7 +153,7 @@ def run_multi_process_simulation(args):
 
 
 def get_algorithm_class(alg_name):
-    """ Helper to get the class itself, not an instance. """
+   
     if alg_name == 'FIFO':
         return algorithms.FIFO
     elif alg_name == 'LRU':
@@ -176,14 +166,14 @@ def get_algorithm_class(alg_name):
         return None
 
 def get_algorithm_instance(alg_name, num_frames):
-    """ Helper to get an initialized instance. """
+   
     alg_class = get_algorithm_class(alg_name)
     if alg_class:
         return alg_class(num_frames)
     return None
 
 def print_stats(stats):
-    """ Helper to print a statistics dictionary. """
+   
     print(f"Total Requests: {stats.get('Total Requests', 'N/A')}")
     print(f"Page Hits: {stats.get('Page Hits', 'N/A')}")
     print(f"Page Faults: {stats.get('Page Faults', 'N/A')}")
@@ -194,7 +184,6 @@ def print_stats(stats):
 def main():
     parser = argparse.ArgumentParser(description="Page Replacement Algorithm Simulator")
     
-    # --- Workload Arguments ---
     workload_group = parser.add_mutually_exclusive_group(required=True)
     workload_group.add_argument('--workload_file', type=str,
                                 help='(Single-Process) Path to a workload trace file.')
@@ -205,7 +194,6 @@ def main():
                                 metavar=('TYPE', 'LEN', 'MAX_P_PER_PROC'),
                                 help="(Multi-Process) Generate a multi-process workload.")
 
-    # --- Mode Arguments ---
     mode_group = parser.add_mutually_exclusive_group(required=True)
     mode_group.add_argument('--single', nargs=2,
                             metavar=('ALG', 'FRAMES'),
@@ -219,7 +207,6 @@ def main():
 
     args = parser.parse_args()
 
-    # --- Route to the correct function ---
     if args.single:
         args.alg = args.single[0]
         args.frames = int(args.single[1])
@@ -229,7 +216,6 @@ def main():
         run_comparison_simulation(args)
         
     elif args.multi:
-        # This mode is triggered, it will use --generate_multiprocess
         run_multi_process_simulation(args)
 
 if __name__ == "__main__":
